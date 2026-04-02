@@ -1,0 +1,114 @@
+name: Build and Publish SDE Database
+
+on:
+  schedule:
+    # Run weekly on Monday at 06:00 UTC — SDE releases are roughly monthly
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and re-publish even if this build already has a release
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create releases
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download SDE
+        run: |
+          curl -fsSL --retry 3 \
+            "https://developers.eveonline.com/static-data/eve-online-static-data-latest-jsonl.zip" \
+            -o sde.zip
+          mkdir -p sde_raw sde
+          unzip -q sde.zip -d sde_raw
+          find sde_raw -name "*.jsonl" -exec mv {} sde/ \;
+          rm -rf sde_raw sde.zip
+
+      - name: Read SDE version
+        id: sde
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          with open('sde/_sde.jsonl') as f:
+              o = json.loads(f.readline())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f"build_number={o['buildNumber']}\n")
+              out.write(f"release_date={o['releaseDate']}\n")
+          EOF
+
+      - name: Check for existing release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ steps.sde.outputs.build_number }}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.check.outputs.exists == 'false' || inputs.force
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build database
+        if: steps.check.outputs.exists == 'false' || inputs.force
+        run: |
+          mkdir -p db
+          python3 main.py ./sde ./db/sde_db.db
+
+      - name: Compress and checksum
+        if: steps.check.outputs.exists == 'false' || inputs.force
+        run: |
+          gzip -k db/sde_db.db
+          sha256sum db/sde_db.db db/sde_db.db.gz > db/sha256sums.txt
+
+      - name: Write release notes
+        if: steps.check.outputs.exists == 'false' || inputs.force
+        run: |
+          cat > release_notes.md <<EOF
+          EVE Online Static Data Export — build **${{ steps.sde.outputs.build_number }}**
+          Release date: ${{ steps.sde.outputs.release_date }}
+
+          ## Assets
+
+          | File | Description |
+          |------|-------------|
+          | \`sde_db.db\` | SQLite database (uncompressed, ~280 MB) |
+          | \`sde_db.db.gz\` | SQLite database (gzip compressed, ~100 MB) |
+          | \`sha256sums.txt\` | SHA-256 checksums for both files |
+
+          ## Usage
+
+          ```bash
+          # Download compressed
+          curl -L https://github.com/${{ github.repository }}/releases/download/build-${{ steps.sde.outputs.build_number }}/sde_db.db.gz | gunzip > sde_db.db
+
+          # Or download uncompressed directly
+          curl -LO https://github.com/${{ github.repository }}/releases/download/build-${{ steps.sde.outputs.build_number }}/sde_db.db
+          ```
+          EOF
+
+      - name: Publish release
+        if: steps.check.outputs.exists == 'false' || inputs.force
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ steps.sde.outputs.build_number }}"
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "EVE SDE Build ${{ steps.sde.outputs.build_number }}" \
+            --notes-file release_notes.md \
+            --latest \
+            db/sde_db.db \
+            db/sde_db.db.gz \
+            db/sha256sums.txt
