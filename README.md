@@ -10,10 +10,10 @@ A pre-built database is published automatically on each new SDE release — see 
 
 ```bash
 # Compressed (~100 MB download, ~280 MB on disk)
-curl -L https://github.com/USER/REPO/releases/latest/download/sde_db.db.gz | gunzip > sde_db.db
+curl -L https://github.com/lillevang/eve-sde-db/releases/latest/download/sde_db.db.gz | gunzip > sde_db.db
 
 # Or uncompressed (~280 MB)
-curl -LO https://github.com/USER/REPO/releases/latest/download/sde_db.db
+curl -LO https://github.com/lillevangg/eve-sde-db/releases/latest/download/sde_db.db
 ```
 
 Verify with the provided `sha256sums.txt` in each release.
