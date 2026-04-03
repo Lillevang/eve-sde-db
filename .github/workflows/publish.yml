@@ -87,6 +87,12 @@ jobs:
           | \`sde_db.db.gz\` | SQLite database (gzip compressed, ~100 MB) |
           | \`sha256sums.txt\` | SHA-256 checksums for both files |
 
+          ## Data Attribution
+
+          EVE Online Static Data Export © CCP hf. All rights reserved.
+          This database is a reformatted copy of CCP's publicly distributed SDE and is subject to the [CCP Developer License Agreement](https://developers.eveonline.com/resource/license-agreement).
+          EVE Online and the EVE logo are registered trademarks of CCP hf.
+
           ## Usage
 
           ```bash
