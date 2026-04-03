@@ -1,6 +1,6 @@
 # eve-sde-db
 
-Converts the [EVE Online Static Data Export](https://developers.eveonline.com/docs/services/static-data-export/) (SDE) from its published JSONL format into a single queryable SQLite database.
+Converts the [EVE Online Static Data Export](https://developers.eveonline.com/docs/services/static-data/) (SDE) from its published JSONL format into a single queryable SQLite database.
 
 A pre-built database is published automatically on each new SDE release — see [Releases](../../releases).
 
